@@ -32,12 +32,20 @@
 struct sockaddr;
 struct timeval;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Function prototypes */
 ssize_t recvfromto(int, void *, size_t, struct sockaddr *,
   socklen_t *, struct sockaddr *, socklen_t *, struct timeval *);
 #if HAVE_SO_TS_CLOCK
 ssize_t recvfromto_mono(int, void *, size_t, struct sockaddr *,
   socklen_t *, struct sockaddr *, socklen_t *, struct timespec *);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
