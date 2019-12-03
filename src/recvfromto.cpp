@@ -110,15 +110,3 @@ recvfromto(int s, void *buf, size_t len, struct sockaddr *from,
     return (_recvfromto(s, buf, len, from, fromlen, to, tolen, timeptr,
       sizeof(*timeptr), SCM_TIMESTAMP));
 }
-
-#if HAVE_SO_TS_CLOCK
-ssize_t
-recvfromto_mono(int s, void *buf, size_t len, struct sockaddr *from,
-  socklen_t *fromlen, struct sockaddr *to, socklen_t *tolen,
-  struct timespec *timeptr)
-{
-
-    return (_recvfromto(s, buf, len, from, fromlen, to, tolen, timeptr,
-      sizeof(*timeptr), SCM_MONOTONIC));
-}
-#endif /* HAVE_SO_TS_CLOCK */
