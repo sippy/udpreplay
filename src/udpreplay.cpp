@@ -30,7 +30,7 @@ SOFTWARE.
 #include <pcap/pcap.h>
 #include <unistd.h>
 
-#define PCAP_MAGIC 0xa1b2c3d4
+#include "pcap_save.h"
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -53,6 +53,7 @@ int main(int argc, char *argv[]) {
   int ttl = -1;
   int broadcast = 0;
   const char *outfile = NULL;
+  PCAP_Save *saver = NULL;
 
   int opt;
   while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
@@ -151,13 +152,11 @@ int main(int argc, char *argv[]) {
   }
 
   if (outfile != NULL) {
-    struct pcap_file_header phead;
-
-    memset(&phead, '\0', sizeof(phead));
-    phead.magic = PCAP_MAGIC;
-    phead.version_major = PCAP_VERSION_MAJOR;
-    phead.version_minor = PCAP_VERSION_MINOR;
-    phead.snaplen = 65535;
+    try {
+      saver = new PCAP_Save(outfile, fd);
+    } catch (std::error_code& e) {
+      return 1;
+    }
   }
 
   char errbuf[PCAP_ERRBUF_SIZE];
@@ -223,11 +222,25 @@ int main(int argc, char *argv[]) {
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
-        std::cerr << "sendto: " << strerror(errno) << std::endl;
+        if (n < 0)
+          std::cerr << "sendto: " << strerror(errno) << std::endl;
+        else
+          std::cerr << "sendto: short write" << std::endl;
         return 1;
+      }
+      if (saver != NULL) {
+        try {
+          saver->process_pkts(fd);
+        } catch (std::error_code& e) {
+          delete saver;
+          return 1;
+        }
       }
     }
   }
 
+  if (saver != NULL) {
+    delete saver;
+  }
   return 0;
 }

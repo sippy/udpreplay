@@ -10,7 +10,8 @@ unicast and multicast streams from a pcap file.
 ## Usage
 
 ```
-usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap
+usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat]
+                 [-t ttl] [-o outfile] pcap
 
   -i iface    interface to send packets through
   -l          enable loopback
@@ -18,6 +19,7 @@ usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] p
   -r repeat   number of times to loop data
   -s speed    replay speed relative to pcap timestamps
   -t ttl      packet ttl
+  -o outfile  save incoming packets into the PCAP file
   -b          enable broadcast (SO_BROADCAST)
 ```
 
