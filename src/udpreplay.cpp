@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
 
     if (handle == nullptr) {
       std::cerr << "pcap_open: " << errbuf << std::endl;
-      return 1;
+      goto fatalerr;
     }
 
     pcap_pkthdr header;
@@ -226,14 +226,13 @@ int main(int argc, char *argv[]) {
           std::cerr << "sendto: " << strerror(errno) << std::endl;
         else
           std::cerr << "sendto: short write" << std::endl;
-        return 1;
+        goto fatalerr;
       }
       if (saver != NULL) {
         try {
           saver->process_pkts(fd);
         } catch (std::error_code& e) {
-          delete saver;
-          return 1;
+          goto fatalerr;
         }
       }
     }
@@ -243,4 +242,10 @@ int main(int argc, char *argv[]) {
     delete saver;
   }
   return 0;
+
+fatalerr:
+  if (saver != NULL) {
+    delete saver;
+  }
+  return 1;
 }
