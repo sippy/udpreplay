@@ -38,6 +38,7 @@ class PCAP_Save
   protected:
     int ofd;
     uint16_t ip_id = 0;
+    uint16_t localport;
     const char *outname;
 };
 

@@ -102,6 +102,22 @@ PCAP_Save::PCAP_Save(const char *oname, int insock)
     close(ofd);
     throw std::error_code(errno, errcat);
   }
+  struct sockaddr_in sin;
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = INADDR_ANY;
+  sin.sin_port = 0;
+  socklen_t sin_len = sizeof(sin);
+  if (bind(insock, reinterpret_cast<const sockaddr *>(&sin), sin_len) < 0) {
+    std::cerr << "bind: " << strerror(errno) << std::endl;
+    close(ofd);
+    throw std::error_code(errno, errcat);
+  }
+  if (getsockname(insock, (struct sockaddr *)&sin, &sin_len) < 0) {
+    std::cerr << "fcntl: " << strerror(errno) << std::endl;
+    close(ofd);
+    throw std::error_code(errno, errcat);
+  }
+  localport = sin.sin_port;
 
   outname = oname;
   return;
@@ -167,7 +183,7 @@ PCAP_Save::process_pkts(int insock)
     wrkhdr.iphdr.ip_sum = my_in_cksum(&wrkhdr.iphdr, sizeof(struct ip));
     /* Cook up UDP header */
     wrkhdr.udphdr.uh_sport = afrom.sin_port;
-    wrkhdr.udphdr.uh_dport = ato.sin_port;
+    wrkhdr.udphdr.uh_dport = localport;
     auto uh_ulen = htons(sizeof(struct udphdr) + rval);
     wrkhdr.udphdr.uh_ulen = uh_ulen;
     my_ip_chksum_start();
@@ -176,7 +192,7 @@ PCAP_Save::process_pkts(int insock)
     my_ip_chksum_pad_v4();
     my_ip_chksum_update(&(uh_ulen), sizeof(uh_ulen));
     my_ip_chksum_update(&(afrom.sin_port), sizeof(afrom.sin_port));
-    my_ip_chksum_update(&(ato.sin_port), sizeof(ato.sin_port));
+    my_ip_chksum_update(&(localport), sizeof(localport));
     my_ip_chksum_update(&(uh_ulen), sizeof(uh_ulen));
     my_ip_chksum_update_data(recvbuf, rval);
     my_ip_chksum_fin(wrkhdr.udphdr.uh_sum);
