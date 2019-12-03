@@ -168,17 +168,15 @@ PCAP_Save::process_pkts(int insock)
     /* Cook up UDP header */
     wrkhdr.udphdr.uh_sport = afrom.sin_port;
     wrkhdr.udphdr.uh_dport = ato.sin_port;
-    wrkhdr.udphdr.uh_ulen = htons(sizeof(struct udphdr) + rval);
+    auto uh_ulen = htons(sizeof(struct udphdr) + rval);
+    wrkhdr.udphdr.uh_ulen = uh_ulen;
     my_ip_chksum_start();
     my_ip_chksum_update(&(wrkhdr.iphdr.ip_src), sizeof(wrkhdr.iphdr.ip_src));
     my_ip_chksum_update(&(wrkhdr.iphdr.ip_dst), sizeof(wrkhdr.iphdr.ip_dst));
     my_ip_chksum_pad_v4();
-    auto uh_ulen = wrkhdr.udphdr.uh_ulen;
     my_ip_chksum_update(&(uh_ulen), sizeof(uh_ulen));
-    auto uh_sport = wrkhdr.udphdr.uh_sport;
-    my_ip_chksum_update(&(uh_sport), sizeof(uh_sport));
-    auto uh_dport = wrkhdr.udphdr.uh_dport;
-    my_ip_chksum_update(&(uh_dport), sizeof(uh_dport));
+    my_ip_chksum_update(&(afrom.sin_port), sizeof(afrom.sin_port));
+    my_ip_chksum_update(&(ato.sin_port), sizeof(ato.sin_port));
     my_ip_chksum_update(&(uh_ulen), sizeof(uh_ulen));
     my_ip_chksum_update_data(recvbuf, rval);
     my_ip_chksum_fin(wrkhdr.udphdr.uh_sum);
