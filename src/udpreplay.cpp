@@ -31,6 +31,8 @@ SOFTWARE.
 #include <math.h>
 #include <unistd.h>
 
+#include "pcap_save.h"
+
 #define timespecadd(vvp, uvp)           \
   do {                                  \
     (vvp)->tv_sec += (uvp)->tv_sec;     \
@@ -51,6 +53,7 @@ int main(int argc, char *argv[]) {
       "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
+      "  -o outfile  save incoming packets into the PCAP file\n"
       "  -b          enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
@@ -60,9 +63,11 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
+  const char *outfile = NULL;
+  PCAP_Save *saver = NULL;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -103,6 +108,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       broadcast = 1;
+      break;
+    case 'o':
+      outfile = optarg;
       break;
     default:
       std::cerr << "usage: " << argv[0] << usage << std::endl;
@@ -150,6 +158,14 @@ int main(int argc, char *argv[]) {
   if (ttl != -1) {
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) == -1) {
       std::cerr << "setsockopt: " << strerror(errno) << std::endl;
+      return 1;
+    }
+  }
+
+  if (outfile != NULL) {
+    try {
+      saver = new PCAP_Save(outfile, fd);
+    } catch (std::error_code& e) {
       return 1;
     }
   }
@@ -233,11 +249,25 @@ int main(int argc, char *argv[]) {
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
-        std::cerr << "sendto: " << strerror(errno) << std::endl;
+        if (n < 0)
+          std::cerr << "sendto: " << strerror(errno) << std::endl;
+        else
+          std::cerr << "sendto: short write" << std::endl;
         return 1;
+      }
+      if (saver != NULL) {
+        try {
+          saver->process_pkts(fd);
+        } catch (std::error_code& e) {
+          delete saver;
+          return 1;
+        }
       }
     }
   }
 
+  if (saver != NULL) {
+    delete saver;
+  }
   return 0;
 }

@@ -3,7 +3,8 @@ project(udpreplay CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(udpreplay src/udpreplay.cpp)
+add_executable(udpreplay src/udpreplay.cpp src/recvfromto.cpp
+ src/network.cpp src/pcap_save.cpp)
 target_compile_options(udpreplay PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_link_libraries(udpreplay pcap)
 
