@@ -35,6 +35,7 @@
 #include <sys/uio.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 #include <pcap/pcap.h>
 
