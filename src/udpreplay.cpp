@@ -28,9 +28,11 @@ SOFTWARE.
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
+#include <math.h>
 #include <unistd.h>
 
 #include "pcap_save.h"
+#include "timespecops.h"
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -52,8 +54,8 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
-  const char *outfile = NULL;
-  PCAP_Save *saver = NULL;
+  const char *outfile = nullptr;
+  PCAP_Save *saver = nullptr;
 
   int opt;
   while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
@@ -151,7 +153,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (outfile != NULL) {
+  if (outfile != nullptr) {
     try {
       saver = new PCAP_Save(outfile, fd);
     } catch (std::error_code& e) {
@@ -170,9 +172,16 @@ int main(int argc, char *argv[]) {
       goto fatalerr;
     }
 
+    if (pcap_set_tstamp_precision(handle, PCAP_TSTAMP_PRECISION_NANO) != 0) {
+      std::cerr << "pcap_set_tstamp_precision(PCAP_TSTAMP_PRECISION_NANO)"
+       << std::endl;
+      return 1;
+    }
+
     pcap_pkthdr header;
     const u_char *p;
-    timeval tv = {0, 0};
+    timespec tv = {0, 0};
+    struct timespec epoch = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -200,15 +209,33 @@ int main(int argc, char *argv[]) {
         // Use constant packet rate
         usleep(interval * 1000);
       } else {
-        if (tv.tv_sec == 0) {
-          tv = header.ts;
+        /*
+         * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
+         * set, tv_usec field in the header represents *NANO*seconds, not
+         * micro.
+         */
+        timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
+        if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
+          clock_gettime(CLOCK_MONOTONIC, &epoch);
+          tv = header_ts;
+        } else {
+          timespec diff;
+          timespecsub2(&diff, &header_ts, &tv);
+          if (speed != 1.0) {
+              double dval_s, dval_us;
+              dval_s = speed * (double)diff.tv_sec;
+              diff.tv_sec = trunc(dval_s);
+              dval_us = (speed * (double)diff.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+              if (dval_us >= 1e+9) {
+                  diff.tv_sec += trunc(dval_us / 1e+9);
+                  diff.tv_nsec = round(fmod(dval_us, 1e+9));
+              } else {
+                  diff.tv_nsec = round(dval_us);
+              }
+          }
+          timespecadd(&diff, &epoch);
+          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &diff, NULL);
         }
-        timeval diff;
-        timersub(&header.ts, &tv, &diff);
-        tv = header.ts;
-        const double delay =
-            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-        usleep(delay);
       }
 
       ssize_t len = ntohs(udp->uh_ulen) - 8;
@@ -228,7 +255,7 @@ int main(int argc, char *argv[]) {
           std::cerr << "sendto: short write" << std::endl;
         goto fatalerr;
       }
-      if (saver != NULL) {
+      if (saver != nullptr) {
         try {
           saver->process_pkts(fd);
         } catch (std::error_code& e) {
@@ -238,13 +265,13 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (saver != NULL) {
+  if (saver != nullptr) {
     delete saver;
   }
   return 0;
 
 fatalerr:
-  if (saver != NULL) {
+  if (saver != nullptr) {
     delete saver;
   }
   return 1;
