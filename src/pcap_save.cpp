@@ -49,6 +49,9 @@
 using namespace std;
 
 #define PCAP_MAGIC 0xa1b2c3d4
+#define PCAP_VER_MAJR   2
+#define PCAP_VER_MINR   4
+
 #define errcat std::system_category()
 
 PCAP_Save::PCAP_Save(const char *oname, int insock)
@@ -57,8 +60,8 @@ PCAP_Save::PCAP_Save(const char *oname, int insock)
 
   memset(&phead, '\0', sizeof(phead));
   phead.magic = PCAP_MAGIC;
-  phead.version_major = PCAP_VERSION_MAJOR;
-  phead.version_minor = PCAP_VERSION_MINOR;
+  phead.version_major = PCAP_VER_MAJR;
+  phead.version_minor = PCAP_VER_MINR;
   phead.snaplen = 65535;
   phead.linktype = DLT_NULL;
 
