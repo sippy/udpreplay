@@ -54,8 +54,8 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
-  const char *outfile = NULL;
-  PCAP_Save *saver = NULL;
+  const char *outfile = nullptr;
+  PCAP_Save *saver = nullptr;
 
   int opt;
   while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (outfile != NULL) {
+  if (outfile != nullptr) {
     try {
       saver = new PCAP_Save(outfile, fd);
     } catch (std::error_code& e) {
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
           std::cerr << "sendto: short write" << std::endl;
         goto fatalerr;
       }
-      if (saver != NULL) {
+      if (saver != nullptr) {
         try {
           saver->process_pkts(fd);
         } catch (std::error_code& e) {
@@ -265,13 +265,13 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (saver != NULL) {
+  if (saver != nullptr) {
     delete saver;
   }
   return 0;
 
 fatalerr:
-  if (saver != NULL) {
+  if (saver != nullptr) {
     delete saver;
   }
   return 1;
