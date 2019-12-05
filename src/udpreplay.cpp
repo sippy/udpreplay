@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
+  timespec interval_ts = {0, 0};
   const char *outfile = nullptr;
   PCAP_Save *saver = nullptr;
 
@@ -78,10 +79,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       interval = std::stoi(optarg);
-      if (interval <= 0) {
+      if (interval < 0) {
         std::cerr << "interval must be positive integer" << std::endl;
         return 1;
       }
+      interval_ts.tv_sec = interval / 1000;
+      interval_ts.tv_nsec = (interval - (interval_ts.tv_sec * 1000)) * 1000000;
       break;
     case 'r':
       repeat = std::stoi(optarg);
@@ -163,6 +166,7 @@ int main(int argc, char *argv[]) {
 
   char errbuf[PCAP_ERRBUF_SIZE];
 
+  struct timespec epoch = {0, 0};
   for (int i = 0; repeat == -1 || i < repeat; i++) {
 
     auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
@@ -176,7 +180,6 @@ int main(int argc, char *argv[]) {
     pcap_pkthdr header;
     const u_char *p;
     timespec tv = {0, 0};
-    struct timespec epoch = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -200,38 +203,46 @@ int main(int argc, char *argv[]) {
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ip_hl * 4);
-      if (interval != -1) {
-        // Use constant packet rate
-        usleep(interval * 1000);
-      } else {
-        /*
-         * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
-         * set, tv_usec field in the header represents *NANO*seconds, not
-         * micro.
-         */
-        timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
-        if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
-          clock_gettime(CLOCK_MONOTONIC, &epoch);
-          tv = header_ts;
-        } else {
-          timespecsub(&header_ts, &tv);
-          if (speed != 1.0) {
-              double dval_s, dval_us;
-              dval_s = speed * (double)header_ts.tv_sec;
-              header_ts.tv_sec = trunc(dval_s);
-              dval_us = (speed * (double)header_ts.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
-              if (dval_us >= 1e+9) {
-                  header_ts.tv_sec += trunc(dval_us / 1e+9);
-                  header_ts.tv_nsec = round(fmod(dval_us, 1e+9));
-              } else {
-                  header_ts.tv_nsec = round(dval_us);
-              }
-          }
-          timespecadd(&header_ts, &epoch);
-          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &header_ts, NULL);
-        }
+
+      /*
+       * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
+       * set, tv_usec field in the header represents *NANO*seconds, not
+       * micro.
+       */
+      timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
+      if (tv.tv_sec == 0 && tv.tv_nsec == 0) {
+        tv = header_ts;
+      }
+      if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
+        clock_gettime(CLOCK_MONOTONIC, &epoch);
+        goto firsttime;
       }
 
+      timespec sleepuntil;
+
+      if (interval != -1) {
+        timespecadd(&epoch, &interval_ts);
+        sleepuntil = epoch;
+      } else {
+        sleepuntil = header_ts;
+        timespecsub(&sleepuntil, &tv);
+        if (speed != 1.0) {
+          double dval_s, dval_ns;
+          dval_s = speed * (double)sleepuntil.tv_sec;
+          sleepuntil.tv_sec = trunc(dval_s);
+          dval_ns = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+          if (dval_ns >= 1e+9) {
+            sleepuntil.tv_sec += trunc(dval_ns / 1e+9);
+            sleepuntil.tv_nsec = round(fmod(dval_ns, 1e+9));
+          } else {
+            sleepuntil.tv_nsec = round(dval_ns);
+          }
+        }
+        timespecadd(&sleepuntil, &epoch);
+      }
+      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleepuntil, NULL);
+
+firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
       const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
