@@ -222,9 +222,9 @@ int main(int argc, char *argv[]) {
       }
       if (sleepuntp == nullptr) {
         if (clock_gettime(CLOCK_MONOTONIC, &last) == -1) {
-            std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
-            pcap_close(handle);
-            goto fatalerr;
+          std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
+          pcap_close(handle);
+          goto fatalerr;
         }
         sleepuntp = &last;
         goto firsttime;
