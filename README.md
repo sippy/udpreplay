@@ -26,7 +26,7 @@ usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat]
 ## Example
 
 ```
-$ udpreplay -i eth0 example.pcap
+$ udpreplay -i eth0 -o incoming.pcap example.pcap
 ```
 
 ## Building & Installing
