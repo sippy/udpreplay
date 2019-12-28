@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018 Erik Rigtorp <erik@rigtorp.se>
+Copyright (c) 2019 Erik Rigtorp <erik@rigtorp.se>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,10 @@ SOFTWARE.
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
+#include <math.h>
 #include <unistd.h>
+
+#include "timespecops.h"
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -49,6 +52,7 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
+  timespec interval_ts = {0, 0};
 
   int opt;
   while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
@@ -71,10 +75,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       interval = std::stoi(optarg);
-      if (interval <= 0) {
-        std::cerr << "interval must be positive integer" << std::endl;
+      if (interval < 0) {
+        std::cerr << "interval must be non-negative integer" << std::endl;
         return 1;
       }
+      interval_ts.tv_sec = interval / 1000;
+      interval_ts.tv_nsec = (interval - (interval_ts.tv_sec * 1000)) * 1000000;
       break;
     case 'r':
       repeat = std::stoi(optarg);
@@ -143,11 +149,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  char errbuf[PCAP_ERRBUF_SIZE];
-
+  struct timespec start = {0, 0}, *stp = nullptr;
   for (int i = 0; repeat == -1 || i < repeat; i++) {
-
-    pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
+     PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
     if (handle == nullptr) {
       std::cerr << "pcap_open: " << errbuf << std::endl;
@@ -156,7 +162,7 @@ int main(int argc, char *argv[]) {
 
     pcap_pkthdr header;
     const u_char *p;
-    timeval tv = {0, 0};
+    timespec pcap_start = {0, 0}, *psp  = nullptr;
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -180,23 +186,51 @@ int main(int argc, char *argv[]) {
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ip_hl * 4);
-      if (interval != -1) {
-        // Use constant packet rate
-        usleep(interval * 1000);
-      } else {
-        if (tv.tv_sec == 0) {
-          tv = header.ts;
-        }
-        timeval diff;
-        timersub(&header.ts, &tv, &diff);
-        tv = header.ts;
-        const double delay =
-            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-        usleep(delay);
+
+      /*
+       * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
+       * set, tv_usec field in the header represents *NANO*seconds, not
+       * micro.
+       */
+      timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
+      if (psp == nullptr) {
+        pcap_start = header_ts;
+        psp = &pcap_start;
+      }
+      if (stp == nullptr) {
+        stp = &start;
+        clock_gettime(CLOCK_MONOTONIC, stp);
+        goto firsttime;
       }
 
+      if (interval != -1) {
+        if (interval == 0)
+          goto firsttime;
+        timespecadd(stp, &interval_ts);
+      } else {
+        timespec sleepuntil = header_ts;
+        timespecsub(&sleepuntil, psp);
+        if (speed != 1.0) {
+          double dval_s, dval_ns;
+          dval_s = speed * (double)sleepuntil.tv_sec;
+          sleepuntil.tv_sec = trunc(dval_s);
+          dval_ns = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+          if (dval_ns >= 1e+9) {
+            sleepuntil.tv_sec += trunc(dval_ns / 1e+9);
+            sleepuntil.tv_nsec = round(fmod(dval_ns, 1e+9));
+          } else {
+            sleepuntil.tv_nsec = round(dval_ns);
+          }
+        }
+        timespecadd(stp, &sleepuntil);
+        *psp = header_ts;
+      }
+      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, stp, NULL);
+
+firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
-      const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
+      const u_char *d =
+          &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
@@ -210,6 +244,8 @@ int main(int argc, char *argv[]) {
         return 1;
       }
     }
+
+    pcap_close(handle);
   }
 
   return 0;
