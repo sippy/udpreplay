@@ -190,8 +190,8 @@ PCAP_Save::process_pkts(int insock)
     auto uh_ulen = htons(sizeof(struct udphdr) + rval);
     wrkhdr.udphdr.uh_ulen = uh_ulen;
     my_ip_chksum_start();
-    my_ip_chksum_update((const uint16_t *)&(wrkhdr.iphdr.ip_src), sizeof(wrkhdr.iphdr.ip_src));
-    my_ip_chksum_update((const uint16_t *)&(wrkhdr.iphdr.ip_dst), sizeof(wrkhdr.iphdr.ip_dst));
+    my_ip_chksum_update(&(afrom.sin_addr), sizeof(afrom.sin_addr));
+    my_ip_chksum_update(&(ato.sin_addr), sizeof(ato.sin_addr));
     my_ip_chksum_pad_v4();
     my_ip_chksum_update(&(uh_ulen), sizeof(uh_ulen));
     my_ip_chksum_update(&(afrom.sin_port), sizeof(afrom.sin_port));
