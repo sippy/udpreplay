@@ -63,4 +63,27 @@
     }                           \
   } while (0)
 
+#define double2timespec(d, tp)                                     \
+    do {                                                           \
+        SEC(tp) = trunc(d);                                        \
+        NSEC(tp) = round((double)NSEC_IN_SEC * ((d) - SEC(tp)));   \
+    } while (0)
+
+#define timespecmul(rvp, vvp, uvp)                                    \
+    do {                                                              \
+        typeof(NSEC(rvp)) tnsec;                                      \
+        typeof(SEC(rvp)) tsec;                                        \
+        tsec = SEC(vvp) * SEC(uvp);                                   \
+        tnsec = (typeof(tnsec))(NSEC(vvp) * NSEC(uvp)) / NSEC_IN_SEC; \
+        tnsec += (typeof(tnsec))(SEC(vvp) * NSEC(uvp));               \
+        tnsec += (typeof(tnsec))(SEC(uvp) * NSEC(vvp));               \
+        SEC(rvp) = tsec;                                              \
+        if (tnsec >= NSEC_IN_SEC) {                                   \
+            SEC(rvp) += (tnsec / NSEC_IN_SEC);                        \
+            NSEC(rvp) = (tnsec % NSEC_IN_SEC);                        \
+        } else {                                                      \
+            NSEC(rvp) = tnsec;                                        \
+        }                                                             \
+    } while (0)
+
 #endif /* _TIMESPECOPS_H */

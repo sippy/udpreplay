@@ -1,5 +1,6 @@
 /*
-Copyright (c) 2019 Erik Rigtorp <erik@rigtorp.se>
+Copyright (c) 2019 Maksym Sobolyev <sobomax@sippysoft.com>
+Copyright (c) 2018-2019 Erik Rigtorp <erik@rigtorp.se>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +51,7 @@ int main(int argc, char *argv[]) {
   int ifindex = 0;
   int loopback = 0;
   double speed = 1;
+  timespec speed_ts;
   int interval = -1;
   int repeat = 1;
   int ttl = -1;
@@ -75,6 +77,9 @@ int main(int argc, char *argv[]) {
       speed = std::stod(optarg);
       if (speed < 0) {
         std::cerr << "speed must be positive" << std::endl;
+      }
+      if (speed != 1.0) {
+        double2timespec(speed, &speed_ts);
       }
       break;
     case 'c':
@@ -227,16 +232,7 @@ int main(int argc, char *argv[]) {
         timespec sleepuntil = header_ts;
         timespecsub(&sleepuntil, psp);
         if (speed != 1.0) {
-          double dval_s, dval_ns;
-          dval_s = speed * (double)sleepuntil.tv_sec;
-          sleepuntil.tv_sec = trunc(dval_s);
-          dval_ns = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
-          if (dval_ns >= 1e+9) {
-            sleepuntil.tv_sec += trunc(dval_ns / 1e+9);
-            sleepuntil.tv_nsec = round(fmod(dval_ns, 1e+9));
-          } else {
-            sleepuntil.tv_nsec = round(dval_ns);
-          }
+          timespecmul(&sleepuntil, &speed_ts, &sleepuntil);
         }
         timespecadd(stp, &sleepuntil);
         *psp = header_ts;
