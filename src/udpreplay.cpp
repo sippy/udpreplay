@@ -216,10 +216,7 @@ int main(int argc, char *argv[]) {
        * micro.
        */
       timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
-      if (plastp == nullptr) {
-        pcap_last = header_ts;
-        plastp = &pcap_last;
-      }
+      bool skipdelay = false;
       if (sleepuntp == nullptr) {
         if (clock_gettime(CLOCK_MONOTONIC, &last) == -1) {
           std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
@@ -227,25 +224,36 @@ int main(int argc, char *argv[]) {
           goto fatalerr;
         }
         sleepuntp = &last;
-        goto firsttime;
+        skipdelay = true;
       }
+      if (plastp == nullptr) {
+        pcap_last = header_ts;
+        plastp = &pcap_last;
+        /*
+         * The interval == -1 clause below covers fixed interval case when
+         * we've repen playback.
+         */
+        if (!skipdelay && interval == -1)
+          skipdelay = true;
+      }
+      if (skipdelay)
+        goto nodelay;
 
       if (interval != -1) {
         if (interval == 0)
-          goto firsttime;
-        timespecadd(&last, &interval_ts);
+          goto nodelay;
       } else {
-        timespec sleepuntil = header_ts;
-        timespecsub(&sleepuntil, plastp);
+        interval_ts = header_ts;
+        timespecsub(&interval_ts, plastp);
         if (speed != 1.0) {
-          timespecmul(&sleepuntil, &speed_ts, &sleepuntil);
+          timespecmul(&interval_ts, &speed_ts, &interval_ts);
         }
-        timespecadd(&last, &sleepuntil);
         pcap_last = header_ts;
       }
+      timespecadd(&last, &interval_ts);
       clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, sleepuntp, NULL);
 
-firsttime:
+nodelay:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
       const u_char *d =
           &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
