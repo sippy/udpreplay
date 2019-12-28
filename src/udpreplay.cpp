@@ -161,7 +161,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  struct timespec start = {0, 0}, *stp = nullptr;
+  timespec last = {0, 0};
+  const timespec *sleepuntp = nullptr;
 
   if (outfile != nullptr) {
     try {
@@ -183,7 +184,8 @@ int main(int argc, char *argv[]) {
 
     pcap_pkthdr header;
     const u_char *p;
-    timespec pcap_start = {0, 0}, *psp  = nullptr;
+    timespec pcap_last = {0, 0};
+    const timespec *plastp  = nullptr;
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -214,30 +216,34 @@ int main(int argc, char *argv[]) {
        * micro.
        */
       timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
-      if (psp == nullptr) {
-        pcap_start = header_ts;
-        psp = &pcap_start;
+      if (plastp == nullptr) {
+        pcap_last = header_ts;
+        plastp = &pcap_last;
       }
-      if (stp == nullptr) {
-        stp = &start;
-        clock_gettime(CLOCK_MONOTONIC, stp);
+      if (sleepuntp == nullptr) {
+        if (clock_gettime(CLOCK_MONOTONIC, &last) == -1) {
+            std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
+            pcap_close(handle);
+            goto fatalerr;
+        }
+        sleepuntp = &last;
         goto firsttime;
       }
 
       if (interval != -1) {
         if (interval == 0)
           goto firsttime;
-        timespecadd(stp, &interval_ts);
+        timespecadd(&last, &interval_ts);
       } else {
         timespec sleepuntil = header_ts;
-        timespecsub(&sleepuntil, psp);
+        timespecsub(&sleepuntil, plastp);
         if (speed != 1.0) {
           timespecmul(&sleepuntil, &speed_ts, &sleepuntil);
         }
-        timespecadd(stp, &sleepuntil);
-        *psp = header_ts;
+        timespecadd(&last, &sleepuntil);
+        pcap_last = header_ts;
       }
-      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, stp, NULL);
+      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, sleepuntp, NULL);
 
 firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
@@ -256,12 +262,14 @@ firsttime:
           std::cerr << "sendto: " << strerror(errno) << std::endl;
         else
           std::cerr << "sendto: short write" << std::endl;
+        pcap_close(handle);
         goto fatalerr;
       }
       if (saver != nullptr) {
         try {
           saver->process_pkts(fd);
         } catch (std::error_code& e) {
+          pcap_close(handle);
           goto fatalerr;
         }
       }
