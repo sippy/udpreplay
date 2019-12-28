@@ -5,7 +5,8 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_executable(udpreplay src/udpreplay.cpp src/recvfromto.cpp
  src/network.cpp src/pcap_save.cpp)
-target_compile_options(udpreplay PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(udpreplay PRIVATE -Wall -Wextra -Wpedantic -Werror
+ -Werror=address-of-packed-member -Wno-language-extension-token)
 target_link_libraries(udpreplay pcap)
 
 install(TARGETS udpreplay DESTINATION bin/)
