@@ -31,6 +31,7 @@ SOFTWARE.
 #include <math.h>
 #include <unistd.h>
 
+#include "pcap_save.h"
 #include "timespecops.h"
 
 int main(int argc, char *argv[]) {
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]) {
       "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
+      "  -o outfile  save incoming packets into the PCAP file\n"
       "  -b          enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
@@ -53,9 +55,11 @@ int main(int argc, char *argv[]) {
   int ttl = -1;
   int broadcast = 0;
   timespec interval_ts = {0, 0};
+  const char *outfile = nullptr;
+  PCAP_Save *saver = nullptr;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -98,6 +102,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       broadcast = 1;
+      break;
+    case 'o':
+      outfile = optarg;
       break;
     default:
       std::cerr << "usage: " << argv[0] << usage << std::endl;
@@ -150,6 +157,15 @@ int main(int argc, char *argv[]) {
   }
 
   struct timespec start = {0, 0}, *stp = nullptr;
+
+  if (outfile != nullptr) {
+    try {
+      saver = new PCAP_Save(outfile, fd);
+    } catch (std::error_code& e) {
+      return 1;
+    }
+  }
+
   for (int i = 0; repeat == -1 || i < repeat; i++) {
     char errbuf[PCAP_ERRBUF_SIZE];
     auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
@@ -157,7 +173,7 @@ int main(int argc, char *argv[]) {
 
     if (handle == nullptr) {
       std::cerr << "pcap_open: " << errbuf << std::endl;
-      return 1;
+      goto fatalerr;
     }
 
     pcap_pkthdr header;
@@ -240,13 +256,32 @@ firsttime:
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
-        std::cerr << "sendto: " << strerror(errno) << std::endl;
-        return 1;
+        if (n < 0)
+          std::cerr << "sendto: " << strerror(errno) << std::endl;
+        else
+          std::cerr << "sendto: short write" << std::endl;
+        goto fatalerr;
+      }
+      if (saver != nullptr) {
+        try {
+          saver->process_pkts(fd);
+        } catch (std::error_code& e) {
+          goto fatalerr;
+        }
       }
     }
 
     pcap_close(handle);
   }
 
+  if (saver != nullptr) {
+    delete saver;
+  }
   return 0;
+
+fatalerr:
+  if (saver != nullptr) {
+    delete saver;
+  }
+  return 1;
 }
