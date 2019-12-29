@@ -236,13 +236,10 @@ int main(int argc, char *argv[]) {
         if (!skipdelay && interval == -1)
           skipdelay = true;
       }
-      if (skipdelay)
+      if (skipdelay || interval == 0)
         goto nodelay;
 
-      if (interval != -1) {
-        if (interval == 0)
-          goto nodelay;
-      } else {
+      if (interval == -1) {
         interval_ts = header_ts;
         timespecsub(&interval_ts, plastp);
         if (speed != 1.0) {
