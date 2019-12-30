@@ -154,9 +154,6 @@ matrix:
     - name: "Ubuntu 18.04 LTS (Bionic Beaver) Clang 8" 
       os: linux
       dist: bionic
-      arch:
-        - amd64
-        - arm64
       addons:
         apt:
           sources:
@@ -167,6 +164,10 @@ matrix:
             - expect
       env:
         - MATRIX_EVAL="CC=clang-8 && CXX=clang++-8"
+
+arch:
+  - amd64
+  - arm64
 
 before_install:
   - eval "${MATRIX_EVAL}"
