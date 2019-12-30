@@ -175,4 +175,4 @@ before_script:
   - cmake -DCMAKE_CXX_FLAGS="-Werror" ..
 
 script:
-  - make && ctest
+  - make && ctest --output-on-failure
