@@ -165,9 +165,20 @@ matrix:
       env:
         - MATRIX_EVAL="CC=clang-8 && CXX=clang++-8"
 
-arch:
-  - amd64
-  - arm64
+    - name: "Ubuntu 18.04 LTS (Bionic Beaver) Clang 8 on ARM"
+      os: linux
+      dist: bionic
+      arch: arm64
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-8
+          packages:
+            - clang-8
+            - libpcap-dev
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-8 && CXX=clang++-8"
 
 before_install:
   - eval "${MATRIX_EVAL}"
