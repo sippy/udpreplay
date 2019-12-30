@@ -1,7 +1,4 @@
 language: cpp
-arch:
-  - amd64
-  - arm64
 
 matrix:
   include:
@@ -157,6 +154,9 @@ matrix:
     - name: "Ubuntu 18.04 LTS (Bionic Beaver) Clang 8" 
       os: linux
       dist: bionic
+      arch:
+        - amd64
+        - arm64
       addons:
         apt:
           sources:
