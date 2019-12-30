@@ -70,21 +70,6 @@ matrix:
       env:
         - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
 
-    - name: "Ubuntu 16.04 LTS (Xenial Xerus) GCC 9 on ARM"
-      os: linux
-      dist: xenial
-      arch: arm64
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-9
-            - libpcap-dev
-            - expect
-      env:
-        - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
-
     - name: "Ubuntu 18.04 LTS (Bionic Beaver) GCC 7" 
       os: linux
       dist: bionic
