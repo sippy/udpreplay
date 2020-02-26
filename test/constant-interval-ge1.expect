@@ -1,4 +1,4 @@
-#!/usr/bin/expect -f
+#!/usr/bin/env expect
 
 # Deadline was not incremented correctly for intervals greater than 1000ms
 
@@ -6,5 +6,5 @@ spawn time -p ./udpreplay -i lo -c 1001 ../test/test.pcap
 wait
 expect {
     default { exit 1 }  
-    "real 3.0" { exit 0 }
+    "real 2.0" { exit 0 }
 }
