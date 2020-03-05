@@ -37,7 +37,8 @@ SOFTWARE.
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
-      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap\n"
+      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] \n"
+      "  [-t ttl] [-n npkts] pcap\n"
       "\n"
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
@@ -46,6 +47,7 @@ int main(int argc, char *argv[]) {
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
       "  -o outfile  save incoming packets into the PCAP file\n"
+      "  -n npkts    replay max of npkts packets\n"
       "  -b          enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
@@ -56,12 +58,13 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
+  int nmax = -1;
   timespec interval_ts = {0, 0};
   const char *outfile = nullptr;
   PCAP_Save *saver = nullptr;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:o:n:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -110,6 +113,13 @@ int main(int argc, char *argv[]) {
       break;
     case 'o':
       outfile = optarg;
+      break;
+    case 'n':
+      nmax = std::stoi(optarg);
+      if (nmax <= 0) {
+        std::cerr << "npkts must be positive integer" << std::endl;
+        return 1;
+      }
       break;
     default:
       std::cerr << "usage: " << argv[0] << usage << std::endl;
@@ -270,6 +280,13 @@ nodelay:
         pcap_close(handle);
         goto fatalerr;
       }
+      if (nmax > 0) {
+        nmax -= 1;
+        if (nmax == 0) {
+            pcap_close(handle);
+            goto done;
+        }
+      }
       if (saver != nullptr) {
         try {
           saver->process_pkts(fd);
@@ -283,6 +300,7 @@ nodelay:
     pcap_close(handle);
   }
 
+done:
   if (saver != nullptr) {
     delete saver;
   }
