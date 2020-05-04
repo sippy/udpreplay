@@ -1,25 +1,6 @@
-/*
-Copyright (c) 2019 Maksym Sobolyev <sobomax@sippysoft.com>
-Copyright (c) 2018-2019 Erik Rigtorp <erik@rigtorp.se>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
- */
+// © 2020 Erik Rigtorp <erik@rigtorp.se>
+// (c) 2019 Maksym Sobolyev <sobomax@sippysoft.com>
+// SPDX-License-Identifier: MIT
 
 #include <cstring>
 #include <iostream>
@@ -36,19 +17,6 @@ SOFTWARE.
 #include "timespecops.h"
 
 int main(int argc, char *argv[]) {
-  static const char usage[] =
-      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] \n"
-      "  [-t ttl] [-n npkts] pcap\n"
-      "\n"
-      "  -i iface    interface to send packets through\n"
-      "  -l          enable loopback\n"
-      "  -c millisec constant milliseconds between packets\n"
-      "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
-      "  -s speed    replay speed relative to pcap timestamps\n"
-      "  -t ttl      packet ttl\n"
-      "  -o outfile  save incoming packets into the PCAP file\n"
-      "  -n npkts    replay max of npkts packets\n"
-      "  -b          enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
   int loopback = 0;
@@ -122,12 +90,28 @@ int main(int argc, char *argv[]) {
       }
       break;
     default:
-      std::cerr << "usage: " << argv[0] << usage << std::endl;
-      return 1;
+      goto usage;
     }
   }
   if (optind >= argc) {
-    std::cerr << "usage: " << argv[0] << usage << std::endl;
+  usage:
+    std::cerr
+        << "udpreplay 1.0.0 © 2020 Erik Rigtorp <erik@rigtorp.se> "
+           "https://github.com/rigtorp/udpreplay\n"
+           "usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r "
+           "repeat] [-t ttl] "
+           "pcap\n"
+           "\n"
+           "  -i iface    interface to send packets through\n"
+           "  -l          enable loopback\n"
+           "  -c millisec constant milliseconds between packets\n"
+           "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
+           "  -s speed    replay speed relative to pcap timestamps\n"
+           "  -t ttl      packet ttl\n"
+           "  -o outfile  save incoming packets into the PCAP file\n"
+           "  -n npkts    replay max of npkts packets\n"
+           "  -b          enable broadcast (SO_BROADCAST)"
+        << std::endl;
     return 1;
   }
 
@@ -202,8 +186,8 @@ int main(int argc, char *argv[]) {
       }
       auto eth = reinterpret_cast<const ether_header *>(p);
 
-      // jump over and ignore vlan tag
-      if (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
+      // jump over and ignore vlan tags
+      while (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
         p += 4;
         eth = reinterpret_cast<const ether_header *>(p);
       }
