@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         << "udpreplay 1.0.0 © 2020 Erik Rigtorp <erik@rigtorp.se> "
            "https://github.com/rigtorp/udpreplay\n"
            "usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r "
-           "repeat] [-t ttl] "
+           "repeat] [-t ttl] [-o outfile] [-n npkts] "
            "pcap\n"
            "\n"
            "  -i iface    interface to send packets through\n"
