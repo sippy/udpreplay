@@ -1,6 +1,6 @@
 # udpreplay
 
-[![Build Status](https://travis-ci.org/sippy/udpreplay.svg?branch=master)](https://travis-ci.org/sippy/udpreplay)
+[![Build Status](https://travis-ci.com/sippy/udpreplay.svg?branch=master)](https://travis-ci.com/sippy/udpreplay)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/sippy/udpreplay/master/LICENSE)
 
 *udpreplay* is a lightweight alternative
