@@ -1,7 +1,7 @@
 # udpreplay
 
 [![Build Status](https://travis-ci.com/sippy/udpreplay.svg?branch=master)](https://travis-ci.com/sippy/udpreplay)
-![C/C++ CI](https://github.com/sippy/udpreplay/workflows/C/C++%20CI/badge.svg)
+[![C/C++ CI](https://github.com/sippy/udpreplay/workflows/C/C++%20CI/badge.svg)](https://github.com/sippy/udpreplay/actions?query=workflow%3A%22C%2FC%2B%2B+CI%22)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/sippy/udpreplay/master/LICENSE)
 
 *udpreplay* is a lightweight alternative
